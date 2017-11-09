@@ -26,7 +26,7 @@ rivets.formatters.byfour = function(item) {return item*4 };
 
 function toHex(str, totalChars){
 	totalChars = (totalChars) ? totalChars : 2;
-	str = (Array(totalChars).join("0")+Number(str).toString(16)).slice(-totalChars).toUpperCase();	
+	str = (Array(totalChars).join("0")+Number(str).toString(16)).slice(-totalChars).toUpperCase();
 	return str;
 }
 
@@ -40,15 +40,15 @@ function generateMap(){
 
 	galaxyMapApp.initialize(); // Init the map first to get W/H
 	settingsApp.initialize(); // Do the setting loading here... after maps can be tweaked
-	
+
 	destinationApp.initialize();
 	localRadarApp.initialize();
 
 	helpApp.loadQuestionsFromWiki();
 	federationsApp.loadFederationsFromWiki();
-	
+
 	// Handle URL parameters <<< HERE
-	
+
 	var exprs = [
 		new RegExp("TO=[A-Z]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+:[0-9A-F]+"),
 		new RegExp("TO=[0-9A-F]+:[0-9A-F]+:[0-9A-F]+[:]*[0-9A-F]*"),
@@ -62,10 +62,10 @@ function generateMap(){
 	for(var i = 0;i<exprs.length;i++){
 		var res = exprs[i].exec(urlContent);
 		if(res!=null){
-			
+
 			var isFrom = (urlContent.indexOf("FROM=") >0);
 			if(isFrom){
-				
+
 				userLocationApp.locationText = res[0].replace("FROM=","");
 				userLocationApp.calculateLocation();
 			}
@@ -87,11 +87,11 @@ function generateMap(){
 
 function wikiAsync(page, okCallback, justHtml){
 	var url = 'https://nomanssky.gamepedia.com/api.php?action=parse&format=json&prop=wikitext&page='+page;
-	
+
 	if(justHtml){
 		url = 'https://nomanssky.gamepedia.com/api.php?action=parse&format=json&page='+page;
 	}
-	$.ajax({ 
+	$.ajax({
 		url: url,
 		dataType: 'jsonp',
 		success: okCallback
@@ -103,7 +103,7 @@ function Region(x,y,z, name, color, index){
 
 	this.coords = [x,y,z];
 	this.mapCoords = [0,0,0];
-	this.name = name;	
+	this.name = name;
 	this.enabled = false; // User Location Only
 	this.color = color;
 	this.index = index;
@@ -111,9 +111,9 @@ function Region(x,y,z, name, color, index){
 	this.distanceLineal = "";
 	this.jumps = "";
 	this.federation = false;
-    
+
 	this.updateCoords = function (x,y,z) { this.coords = [x,y,z];};
-	
+
 	this.updateMapCoords = function(mapW, mapH){
 		var mX = 4096;
 		var mZ = 4096;
@@ -121,9 +121,9 @@ function Region(x,y,z, name, color, index){
 		this.mapCoords[1] = this.coords[1];
 		this.mapCoords[2] = this.coords[2] * mapH / mZ;
 	};
-	
+
 	this.getHexStr = function() { return toHex(this.coords[0],4)+":"+toHex(this.coords[1],4)+":"+toHex(this.coords[2],4)};
-	
+
 	this.getVector = function (otherR){
 
 		var v = { a: 0, b:0, m: 0};
@@ -144,11 +144,11 @@ function Region(x,y,z, name, color, index){
 		var dX = otherR.coords[0] - this.coords[0];
 		var dY = otherR.coords[1] - this.coords[1];
 		var dZ = otherR.coords[2] - this.coords[2];
-	
+
 		var distance = Math.sqrt(dX*dX + dY*dY + dZ*dZ);
 		return distance*100; // NMS stuff
 	};
-	
+
 };
 
 var textHandler = {
@@ -176,7 +176,7 @@ var textHandler = {
 				}
 			}
 		}
-		
+
 		if(data != undefined){
 			var x = Number("0x"+data[0]);
 			var y = Number("0x"+data[1]);
@@ -212,7 +212,7 @@ var commonData = {
 	heightNotOK : false,
 	heightDiff: 0,
 	heightDir: "",
-	
+
 	locationChangeCallbacks : [],
 	destinationsChangeCallbacks : [],
 	triggerCallback: function(cbs){
@@ -220,7 +220,7 @@ var commonData = {
 			cbs[i]();
 		}
 	},
-	
+
 	onLocationChange: function(){
 		commonData.triggerCallback(commonData.locationChangeCallbacks);
 	},
@@ -230,7 +230,7 @@ var commonData = {
 };
 
 var userLocationApp = {
-	
+
 	userLocation: commonData.userLocation,
 	firstPush : false,
 	locationValid: false,
@@ -241,13 +241,24 @@ var userLocationApp = {
 	showCompass: false,
 	showBhHelper: false,
 	lastJumpDistanceText: "",
-	
-	
-	calculateLocation : function(){
-		
+
+	fixInput : function(){
 		var pThis = userLocationApp;
-		pThis.firstPush = true;		
-		textHandler.parseLine(pThis.locationText, 
+		var locationText = pThis.locationText.toUpperCase();
+
+		// Look for a semi-colon to determine basic validity
+		if (locationText.indexOf(':') == -1) {
+			// Add in a semi-colon every 4 characters, starting at the beginning
+			pThis.locationText = locationText.match(/.{4}/g).join(':');
+		}
+	},
+
+	calculateLocation : function(){
+
+		var pThis = userLocationApp;
+		pThis.firstPush = true;
+		pThis.fixInput();
+		textHandler.parseLine(pThis.locationText,
 			function(x,y,z,name,color){ // OK Callback
 				var common = commonData;
 				common.userLocation.updateCoords(x,y,z);
@@ -256,16 +267,16 @@ var userLocationApp = {
 				userLocationApp.locationValid = true;
 				galaxyMapApp.showBlackHoleRing = false; // No blackhole if you move
 				galaxyMapApp.showAreaHint = false;
-				
+
 				// Trigger waterfall events!
 				common.onLocationChange();
-				
+
 				federationsApp.syncDistanceToUser();
-			}, 
+			},
 			function(){
 				userLocationApp.locationValid = false;
 				userLocationApp.errorMessage = "Grah! Invalid format for location";
-			}, 	
+			},
 			null, null
 		);
 	},
@@ -281,16 +292,16 @@ var userLocationApp = {
 		galaxyMapApp.drawAreaHint(jdt /4.0, true); // Linear dist fix
 	},
 	drawBHZone : function (){ // Redirect
-		
+
 		var pThis = userLocationApp;
 		pThis.firstPush = true;
-		
+
 		if(!pThis.locationValid){
 			pThis.errorMessage = "Grah!! Calculate your location first!";
 			return;
 		}
 		galaxyMapApp.drawBHZone();
-		
+
 	}
 };
 
@@ -306,14 +317,14 @@ var destinationApp = {
 		// Initialize custom destinations here
 		this.addDest(0x64a,0x082,0x1b9,'Pilgrim Star',orangeColor);
 		this.addDest(0x44c,0x0082,0x0D55,'Galactic Hub','#c0ca33'); this.destinations[1].federation = true; // trick here
-		
+
 		if(commonData.selectedFederation){
 			var s = commonData.selectedFederation;
 			this.setFederationDest(s.coords[0], s.coords[1],s.coords[2],s.name, s.color,false);
 		}
-		
+
 		this.changeDest(1); // Force it
-		
+
 		// Initialize stuff
 		commonData.selectedDestinationObj = commonData.destinations[commonData.selectedDestination];
 		commonData.selectedDestinationName = commonData.selectedDestinationObj.name;
@@ -330,21 +341,21 @@ var destinationApp = {
 	addDest : function(x,y,z, name, color){
 		name = (name) ? name : ("Destination " + commonData.destinations.length);
 		color = (color) ? color : orangeColor;
-						
+
 		var totalSameCoords = commonData.destinations.filter(function(dest){ return (dest.coords[0]==x && dest.coords[1]==y && dest.coords[2]==z)});
 		if(totalSameCoords.length==0){
 			var newRe = new Region(x,y,z,name,color, commonData.destinations.length);
 			newRe.updateMapCoords(galaxyMapApp.width, galaxyMapApp.height);
 			commonData.destinations.push(newRe);
 		}
-	},	
-	
+	},
+
 	addBatchText : function(){
-		var lines = destinationApp.destinationsText.split("\n");		
+		var lines = destinationApp.destinationsText.split("\n");
 
 		for(var i = 0;i<lines.length;i++){
 			var name = null;
-			var data = textHandler.parseLine(lines[i], 
+			var data = textHandler.parseLine(lines[i],
 				function(x,y,z,name,color){
 					destinationApp.addDest(x,y,z,name,color);
 				},
@@ -354,32 +365,32 @@ var destinationApp = {
 		}
 		commonData.onLocationChange(); // Force all updates!
 	},
-	
+
 	deleteDest : function(){
 		var pThis = destinationApp;
 		if(pThis.destinations.length<2){
 			return;
-		}	
-		
+		}
+
 		var index = Number($(this).attr("rel"));
 		for(var i = index;i<pThis.destinations.length-1;i++){
 			pThis.destinations[i] = pThis.destinations[i+1];
 			pThis.destinations[i].index = i;
 		}
 		pThis.destinations.pop();
-		destinationApp.changeDest(0);	
+		destinationApp.changeDest(0);
 		commonData.onLocationChange(); // Trigger waterfall events!
-		
+
 	},
-	selectDest : function(){	
-		destinationApp.changeDest(Number($(this).attr("rel")));	
+	selectDest : function(){
+		destinationApp.changeDest(Number($(this).attr("rel")));
 		commonData.onLocationChange(); // Trigger waterfall events!
 	},
 	addPilgrim : function(){
 		destinationApp.addDest(0x64a,0x082,0x1b9,'Pilgrim Star',orangeColor);
-	},		
+	},
 	addRedHub: function(){
-		destinationApp.addDest(0x44c,0x0082,0x0D55,'Galactic Hub','#c0ca33');			
+		destinationApp.addDest(0x44c,0x0082,0x0D55,'Galactic Hub','#c0ca33');
 	},
 	parseWikiLocations : function(data){
 		var wikiRows = data.parse.wikitext["*"].split("\n");
@@ -387,7 +398,7 @@ var destinationApp = {
 			if(wikiRows[i].indexOf("| ")==0){
 				var values = wikiRows[i].replace("| ","").split(" || ");
 				var name = values[0];
-				var data = textHandler.parseLine(values[1], 
+				var data = textHandler.parseLine(values[1],
 					function(x,y,z,name,color){
 						destinationApp.addDest(x,y,z,name,color);
 					},
@@ -411,7 +422,7 @@ var destinationApp = {
 		});
 	},
 	setFederationDest : function( x,y,z, name, color, save){
-		
+
 		var currFed = null;
 		var pthis = destinationApp;
 		for(var i = 0;i<pthis.destinations.length;i++){
@@ -423,31 +434,31 @@ var destinationApp = {
 				break;
 			}
 		}
-		
+
 		if(currFed == null){ // No fed ON, lets create it
 			destId = pthis.destinations.length
 			pthis.addDest(x,y,z,fedObj.name,'#c0ca33');
 			pthis.selectedDestination+=1;
 			currFed = pthis.destinations[pthis.selectedDestination];
 		}
-		
+
 		// Save the selected federation option
 		commonData.selectedFederation = currFed;
 		if(save){
-			settingsApp.applySettings(); 
+			settingsApp.applySettings();
 		}
-		
+
 		pthis.changeDest(destId);
 		pthis.reSyncDistanceToUser();
 		localRadarApp.syncGrid();
 		commonData.onLocationChange();
 		galaxyMapApp.forceReDraw();
-		
+
 		$(".page").removeClass("active"); // Force gui refresh
 		$("#page1").addClass("active");
 		$(".menuitem").removeClass("active");
 		$("#mainMenuItem").addClass("active");
-		
+
 	},
 	reSyncDistanceToUser : function(){
 		var common = commonData;
@@ -457,7 +468,7 @@ var destinationApp = {
 			common.destinations[i].distanceLineal = (distance*4).toFixed(3);
 			common.destinations[i].jumps = Math.ceil(distance/(common.jumpRange/4.0));
 		}
-		
+
 		// Height calculation!
 		var hUser = common.userLocation.coords[1];
 		var hDest = common.selectedDestinationObj.coords[1];
@@ -465,7 +476,7 @@ var destinationApp = {
 		common.heightDiff = (hUser-hDest);
 		common.heightDir = (common.heightDiff>0) ? "above" : "below";
 		common.heightDiff = Math.abs(common.heightDiff);
-		
+
 		// Coffee hint calculation
 		if(common.selectedDestinationObj.jumps>100){
 			common.coffeeHint = "Use BlackHole Roulette";
@@ -474,11 +485,11 @@ var destinationApp = {
 			common.coffeeHint = "Travel directly";
 			common.shouldUseBh = false;
 		}
-		
+
 	},
 	reSyncDegrees: function(){
 		var common = commonData;
-		var v1 = common.userLocation.getVector(common.center); 
+		var v1 = common.userLocation.getVector(common.center);
 		var v2 = common.userLocation.getVector(common.selectedDestinationObj);
 		var radians = v1.getDegreesVector(v2);
 
@@ -486,7 +497,7 @@ var destinationApp = {
 		common.degreesTransf = "rotate("+degrees+" 80 80)";
 		common.degrees = Math.abs(degrees).toFixed(2);
 		common.degreesDir = (degrees>0) ? "right" : "left";
-		
+
 	}
 };
 
@@ -499,11 +510,11 @@ var mapOverlayApp = {
 		var m = mapOverlayApp;
 		var r = localRadarApp;
 		var g = galaxyMapApp;
-		
+
 		m.galaxyMode = !m.galaxyMode;
-		g.mapEnabled = m.galaxyMode;		
+		g.mapEnabled = m.galaxyMode;
 		r.mapEnabled = !m.galaxyMode;
-		
+
 		commonData.onLocationChange();
 	}
 }
@@ -521,19 +532,19 @@ var galaxyMapApp = {
 	mapEnabled : true,
 	center: commonData.center,
 	userApp: userLocationApp,
-	userLocation: commonData.userLocation,	
+	userLocation: commonData.userLocation,
 	destApp : destinationApp,
 	destinations : destinationApp.destinations,
 
 	initialize : function(){
 		this.width = ($("#galaxyMapNode")[0]).getBoundingClientRect().width * 0.991;
 		this.aspect = (document.documentElement.clientWidth*1.0/document.documentElement.clientHeight);
-		this.height =  this.width / this.aspect; 
+		this.height =  this.width / this.aspect;
 		this.height -= $("#mainnav")[0].clientHeight + $("#userInputPanel")[0].clientHeight +30;
-		
+
 		commonData.center.updateMapCoords(galaxyMapApp.width, galaxyMapApp.height);
 	},
-	
+
 	forceReDraw : function(){
 		commonData.center.updateMapCoords(galaxyMapApp.width, galaxyMapApp.height);
 		for(var i = 0;i<commonData.destinations.length;i++){
@@ -541,14 +552,14 @@ var galaxyMapApp = {
 		}
 	},
 	drawAreaHint : function (lyRadius, showBh){
-		
+
 		this.areaHint.cx =  commonData.userLocation.mapCoords[0];
 		this.areaHint.cy =  commonData.userLocation.mapCoords[2];
 		this.areaHint.rx = lyRadius /100.0 * ((this.width/4096)) ;
 		this.areaHint.ry = lyRadius /100.0 * ((this.height/4096)) ;
-		
+
 		this.showAreaHint = true;
-		
+
 		if(showBh){
 			this.drawBHZone();
 		}
@@ -556,18 +567,18 @@ var galaxyMapApp = {
 	},
 	drawBHZone : function(){
 		var centerDist = commonData.userLocation.calculateDistance(commonData.center);
-		var outterDistance = (centerDist-1000)/100.0;	
+		var outterDistance = (centerDist-1000)/100.0;
 		var aspectX = (this.width/4096);
 		var aspectY = (this.height/4096);
 		var rx = (outterDistance) *(aspectX);
 		var ry = (outterDistance) *(aspectY);
-		
+
 		this.blackHoleRadius.rx = rx-5;
 		this.blackHoleRadius.ry = ry-5;
 		this.showBlackHoleRing = true;
 
 	}
-	
+
 };
 var galaxyMapAppBind = rivets.bind($("#galaxyMapNode")[0], galaxyMapApp);
 
@@ -587,13 +598,13 @@ var localRadarApp = {
 	mapRelationW : 0,
 	radarValid : false,
 	radarValidDist: '',
-	
+
 	initialize : function(){
 		this.width = galaxyMapApp.width;
 		this.height =  galaxyMapApp.height;
 		this.syncGrid();
 		commonData.locationChangeCallbacks.push(localRadarApp.syncLocations);
-		
+
 	},
 	syncGrid: function(){
 		var gridRange = commonData.localRadarRange;
@@ -605,13 +616,13 @@ var localRadarApp = {
 	},
 
 	syncLocations : function(){
-		
+
 		var pThis = localRadarApp;
 		var mapW = pThis.width;
 		var mapH = pThis.height;
-		
+
 		var obj = commonData.selectedDestinationObj;
-		
+
 		var hDest = obj.coords[1];
 		var destC = {x:obj.coords[0], y:obj.coords[1], z:obj.coords[2]};
 
@@ -623,26 +634,26 @@ var localRadarApp = {
 		pThis.dest.color = obj.color;
 
 		if(userLocationApp.locationValid){
-			
+
 			// Technically valid
-			obj = commonData.userLocation;	
+			obj = commonData.userLocation;
 			var gridRange = commonData.localRadarRange;
 			var uX = obj.coords[0];
 			var uZ = obj.coords[2];
 			if(uX >=destC.x-gridRange && uX <=destC.x+gridRange){
 				if(uZ >=destC.z-gridRange && uZ <=destC.z+gridRange){
 					// We need to draw ourselves
-					
+
 					pThis.userPoint.mx = pThis.dest.mx - ((destC.x-uX) *pThis.mapRelationW);
 					pThis.userPoint.mz = pThis.dest.mz - ((destC.z-uZ) *pThis.mapRelationH);
-					
+
 					pThis.userPoint.name= obj.name;
 					pThis.userPoint.color= obj.color;
 					pThis.userPoint.mxT= pThis.userPoint.mx+10;
 					pThis.userPoint.mzT= pThis.userPoint.mz-5;
 				}
 			}
-			
+
 			var l = localRadarApp;
 			var cjumps = commonData.selectedDestinationObj.jumps;
 
@@ -652,7 +663,7 @@ var localRadarApp = {
 			}else{
 				l.radarValid = true;
 			}
-			
+
 		}
 	}
 
@@ -664,7 +675,7 @@ var settingsApp = {
 	common : commonData,
 	map : galaxyMapApp,
 	tag : "nmspspset",
-	initialize: function(){	
+	initialize: function(){
 		if(localStorage!=undefined){
 			try{
 				var rawData = localStorage.getItem(settingsApp.tag);
@@ -672,34 +683,34 @@ var settingsApp = {
 					return;
 				}
 				var data = JSON.parse(rawData);
-				
+
 				commonData.jumpRange = data.jumpRange;
 				commonData.localRadarRange = data.localRadarRange;
-				commonData.selectedFederation = data.selectedFederation;			
+				commonData.selectedFederation = data.selectedFederation;
 				galaxyMapApp.height = data.height;
 
 			}catch(err){
 				console.log("Err restoring storage: ",err);
 			}
-			
+
 		}
 	},
-	
+
 	applySettings : function(){
 		if(localStorage!=undefined){
 			try{
 				localStorage.setItem(settingsApp.tag, JSON.stringify({
-					jumpRange: commonData.jumpRange, 
-					localRadarRange: commonData.localRadarRange, 
+					jumpRange: commonData.jumpRange,
+					localRadarRange: commonData.localRadarRange,
 					selectedFederation : commonData.selectedFederation,
 					height: galaxyMapApp.height
 				}));
-				
+
 			}catch(err){
 				console.log("Err saving storage: ",err);
 			}
 		}
-				
+
 		localRadarApp.syncGrid();
 		commonData.onLocationChange(); // Trigger data
 		galaxyMapApp.forceReDraw(); // Redraw with new data
@@ -713,23 +724,23 @@ var settingsApp = {
 var settingsAppBind = rivets.bind($("#settingsNode")[0], settingsApp);
 
 var helpApp = {
-	
+
 	wikiLoading : false,
 	helpItems : [],
 	loadQuestionsFromWiki : function (){
-		helpApp.wikiLoading = true;		
-			
+		helpApp.wikiLoading = true;
+
 		wikiAsync("PSPathHelp", function(data){
 			var externalData = data.parse.wikitext["*"].split("\n\n");
-							
+
 			for(var i = 0; i< externalData.length;i++){
 				try{
 					if(externalData[i].indexOf("QuestionTag")>=0){ // Only if data present
-						var systemInfo = externalData[i].split("\n");						
+						var systemInfo = externalData[i].split("\n");
 						var qTag = systemInfo[0].split("QuestionTag: ")[1];
 						var qTitle = systemInfo[1].split("QuestionTitle: ")[1];
 						var qText = systemInfo[2].split("QuestionText: ")[1].split("\"\"\"")[1];
-						
+
 						var total = helpApp.helpItems.filter(function(item){ return (item.tag == qTag);});
 						if(total.length==0){
 							helpApp.helpItems.push({tag : qTag, title: qTitle, text: qText});
@@ -738,9 +749,9 @@ var helpApp = {
 				}catch(err){ /* Doh? Here */}
 			}
 			helpApp.wikiLoading = false;
-			
+
 		});
-	}	
+	}
 };
 var helpAppBind = rivets.bind($("#helpNode")[0], helpApp);
 
@@ -751,19 +762,19 @@ var federationsApp = {
 	federations: [],
 	loadFederationsFromWiki : function(){
 		federationsApp.wikiLoading = true;
-		
+
 		wikiAsync("United_Federation_of_Travelers", function(rawData){
 			var externalRawData = rawData.parse.text["*"];
-			
+
 			var elements = $(externalRawData);
 			wikiImageNodes = $("img",elements);
-			
+
 			wikiAsync("United_Federation_of_Travelers", function(data){
 				var externalData = data.parse.wikitext["*"].split("\n");
-								
+
 				for(var i = 0; i< externalData.length;i++){
 					try{
-						
+
 						if(externalData[i].indexOf("| ")>=0){
 							var splitData = externalData[i].split("|").filter(function f(node) { return (node.indexOf("style")<0 && node.length>2) ; });
 							if(splitData[0][0]=="["){
@@ -780,28 +791,28 @@ var federationsApp = {
 											name = (name!="") ? name : splitData[j].split("]]")[0].replace("[[","");
 										}
 									}
-									
+
 									if (splitData[j].indexOf(":00")>0){
 										coordsText = splitData[j];
 									}
 								}
-								
+
 								// Parse it here
 								textHandler.parseLine(coordsText,
-									function(x,y,z,name,color){			
+									function(x,y,z,name,color){
 										coords = [x,y,z];
 									},
 									function(){}
 									,name,'#c0ca33'
 								);
-								
+
 								if(fname!=""){
-									for(var j = 0;j<wikiImageNodes.length;j++){									
+									for(var j = 0;j<wikiImageNodes.length;j++){
 										if(wikiImageNodes[j].alt == fname){
 											fname = wikiImageNodes[j].src;
 											break;
 										}
-									}									
+									}
 								}else{
 									fname="data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=";
 								}
@@ -815,11 +826,11 @@ var federationsApp = {
 					}
 				}
 				federationsApp.wikiLoading = false;
-				
+
 			});
 		}, true);
 	},
-	
+
 	syncDistanceToUser: function(){
 		var pThis = federationsApp;
 		for(var i = 0;i<pThis.federations.length;i++){
@@ -827,7 +838,7 @@ var federationsApp = {
 			pThis.federations[i].jumpsToUser = Math.ceil(pThis.federations[i].distanceToUser / (pThis.common.jumpRange / 4.0));
 		}
 	},
-	
+
 	selectFederation : function(){
 		var pThis = federationsApp;
 		var index = Number($(this).attr("rel"));
